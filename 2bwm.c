@@ -42,6 +42,7 @@ xcb_screen_t     *screen;           // Our current screen.
 int randrbase;                      // Beginning of RANDR extension events.
 static uint8_t curws = 0;                  // Current workspace.
 struct client *focuswin;            // Current focus window.
+struct client *raisedwin;
 static xcb_drawable_t top_win=0;           // Window always on top.
 static struct item *winlist = NULL;        // Global list of all client windows.
 static struct item *monlist = NULL;        // List of all physical monitor outputs.
@@ -138,6 +139,7 @@ static void resize(xcb_drawable_t, const uint16_t, const uint16_t);
 static void moveresize(xcb_drawable_t, const uint16_t, const uint16_t,const uint16_t, const uint16_t);
 static void mousemove(const int16_t,const int16_t);
 static void mouseresize(struct client *,const int16_t,const int16_t);
+static void mouseraise(void);
 static void setborders(struct client *,const bool);
 static void unmax(struct client *);
 static bool getpointer(const xcb_drawable_t *, int16_t *,int16_t *);
@@ -1436,26 +1438,22 @@ movelim(struct client *client)
 	noborder(&temp, client, true);
 
 	/* Is it outside the physical monitor or close to the side? */
-	if (client->y-conf.borderwidth < mon_y)
-		client->y = mon_y;
-	else if (client->y < borders[2] + mon_y)
-		client->y = mon_y;
-	else if (client->y + client->height + (conf.borderwidth * 2) > mon_y
-			+ mon_height - borders[2])
-		client->y = mon_y + mon_height - client->height
-			- conf.borderwidth * 2;
+	if (ENABLE_LIMITS) {
+		if (client->y-conf.borderwidth < mon_y)
+			client->y = mon_y;
+		else if (client->y < borders[2] + mon_y)
+			client->y = mon_y;
+		else if (client->y + client->height + (conf.borderwidth * 2) > mon_y + mon_height - borders[2])
+			client->y = mon_y + mon_height - client->height - conf.borderwidth * 2;
 
-	if (client->x < borders[2] + mon_x)
-		client->x = mon_x;
-	else if (client->x + client->width + (conf.borderwidth * 2)
-			> mon_x + mon_width - borders[2])
-		client->x = mon_x + mon_width - client->width
-			- conf.borderwidth * 2;
+		if (client->x < borders[2] + mon_x)
+			client->x = mon_x;
+		else if (client->x + client->width + (conf.borderwidth * 2) > mon_x + mon_width - borders[2])
+			client->x = mon_x + mon_width - client->width - conf.borderwidth * 2;
 
-	if (client->y + client->height > mon_y + mon_height
-			- conf.borderwidth * 2)
-		client->y = (mon_y + mon_height - conf.borderwidth * 2)
-			- client->height;
+		if (client->y + client->height > mon_y + mon_height - conf.borderwidth * 2)
+			client->y = (mon_y + mon_height - conf.borderwidth * 2) - client->height;
+	}
 
 	movewindow(client->id, client->x, client->y);
 	noborder(&temp, client, false);
@@ -1655,16 +1653,16 @@ resizelim(struct client *client)
 	noborder(&temp, client, true);
 
 	/* Is it smaller than it wants to  be? */
-	if (0 != client->min_height && client->height < client->min_height)
-		client->height = client->min_height;
-	if (0 != client->min_width && client->width < client->min_width)
-		client->width = client->min_width;
-	if (client->x + client->width + conf.borderwidth  > mon_x + mon_width)
-		client->width = mon_width - ((client->x - mon_x)
-				+ conf.borderwidth * 2);
-	if (client->y + client->height + conf.borderwidth > mon_y + mon_height)
-		client->height = mon_height - ((client->y - mon_y)
-				+ conf.borderwidth * 2);
+	if (ENABLE_LIMITS) {
+		if (0 != client->min_height && client->height < client->min_height)
+			client->height = client->min_height;
+		if (0 != client->min_width && client->width < client->min_width)
+			client->width = client->min_width;
+		if (client->x + client->width + conf.borderwidth  > mon_x + mon_width)
+			client->width = mon_width - ((client->x - mon_x) + conf.borderwidth * 2);
+		if (client->y + client->height + conf.borderwidth > mon_y + mon_height)
+			client->height = mon_height - ((client->y - mon_y) + conf.borderwidth * 2);
+	}
 
 	resize(client->id, client->width, client->height);
 	noborder(&temp, client, false);
@@ -1837,6 +1835,18 @@ mousemove(const int16_t rel_x, const int16_t rel_y)
 		snapwindow(focuswin);
 
 	movelim(focuswin);
+}
+
+void
+mouseraise(void) {
+	if (raisedwin == focuswin) {
+		//xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
+		return;
+	} else {
+		raise_current_window();
+		//xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
+		raisedwin = focuswin;
+	}
 }
 
 void
@@ -2732,12 +2742,12 @@ mousemotion(const Arg *arg)
 
 	free(grab_reply);
 	ungrab = false;
-
+  
 	do {
 		if (NULL!=e)
 			free(e);
 
-		while(!(e = xcb_wait_for_event(conn)))
+		while(!(e = xcb_poll_for_event(conn)))
 			xcb_flush(conn);
 
 		switch (e->response_type & ~0x80) {
@@ -2768,7 +2778,6 @@ mousemotion(const Arg *arg)
 
 				setborders(focuswin,true);
 			}
-
 			ungrab = true;
 			break;
 		}
@@ -2790,6 +2799,13 @@ buttonpress(xcb_generic_event_t *ev)
 {
 	xcb_button_press_event_t *e = (xcb_button_press_event_t *)ev;
 	unsigned int i;
+	
+	if (raisedwin == NULL) {
+		raisedwin = focuswin;
+	}
+
+	if (CLICK_TO_FOCUS && raisedwin->id != e->event && e->detail == XCB_BUTTON_INDEX_1)
+		mouseraise();
 
 	for (i=0; i<LENGTH(buttons); i++)
 		if (buttons[i].func && buttons[i].button == e->detail
@@ -2805,6 +2821,11 @@ buttonpress(xcb_generic_event_t *ev)
 				buttons[i].func(&(buttons[i].arg));
 			}
 		}
+
+	if (CLICK_TO_FOCUS) {
+		xcb_allow_events(conn, XCB_ALLOW_REPLAY_POINTER, e->time);
+		xcb_flush(conn);
+	}
 }
 
 void
@@ -2968,7 +2989,7 @@ run(void)
 		if (xcb_connection_has_error(conn))
 			abort();
 
-		if ((ev = xcb_wait_for_event(conn))) {
+		if ((ev = xcb_poll_for_event(conn))) {
 			if(ev->response_type==randrbase +
 					XCB_RANDR_SCREEN_CHANGE_NOTIFY)
 				getrandr();
@@ -3020,18 +3041,33 @@ grabbuttons(struct client *c)
 		numlockmask,
 		numlockmask | XCB_MOD_MASK_LOCK
 	};
+  
+	if (!c)
+		return;
 
+	xcb_ungrab_button(conn, XCB_BUTTON_INDEX_ANY, c->id, XCB_GRAB_ANY);
 	for (unsigned int b=0; b<LENGTH(buttons); b++)
 		if (!buttons[b].root_only) {
 			for (unsigned int m=0; m<LENGTH(modifiers); m++)
-				xcb_grab_button(conn, 1, c->id,
-						XCB_EVENT_MASK_BUTTON_PRESS,
-						XCB_GRAB_MODE_ASYNC,
-						XCB_GRAB_MODE_ASYNC,
-						screen->root, XCB_NONE,
-						buttons[b].button,
-						buttons[b].mask|modifiers[m]
-				);
+				if (CLICK_TO_FOCUS) {
+					xcb_allow_events(conn, XCB_ALLOW_REPLAY_POINTER, XCB_CURRENT_TIME);
+					xcb_grab_button(conn, 1, c->id,
+							XCB_EVENT_MASK_BUTTON_PRESS,
+							XCB_GRAB_MODE_SYNC,
+							XCB_GRAB_MODE_ASYNC,
+							XCB_WINDOW_NONE,
+							XCB_CURSOR_NONE,
+							XCB_BUTTON_INDEX_ANY,
+							XCB_BUTTON_MASK_ANY);
+				} else {
+					xcb_grab_button(conn, 1, c->id,
+							XCB_EVENT_MASK_BUTTON_PRESS,
+							XCB_GRAB_MODE_SYNC,
+							XCB_GRAB_MODE_ASYNC,
+							screen->root, XCB_NONE,
+							buttons[b].button,
+							buttons[b].mask|modifiers[m]);
+				}
 		}
 }
 
