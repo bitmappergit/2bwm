@@ -176,8 +176,8 @@ delmonitor(struct monitor *mon)
 void
 raise_current_window(void)
 {
-	raisedwin = focuswin; 
 	raisewindow(focuswin->id);
+	raisedwin = focuswin;
 }
 
 void
@@ -1407,7 +1407,7 @@ raisewindow(xcb_drawable_t win)
 
 	if (screen->root == win || 0 == win)
 		return;
-  raisedwin = win;
+  //raisedwin = win;
 	xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_STACK_MODE, values);
 	xcb_flush(conn);
 }
@@ -1844,7 +1844,6 @@ mouseraise(void) {
 		return;
 	} else {
 		raise_current_window();
-		raisedwin = focuswin;
 	}
 }
 
