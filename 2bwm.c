@@ -176,6 +176,7 @@ delmonitor(struct monitor *mon)
 void
 raise_current_window(void)
 {
+	raisedwin = focuswin; 
 	raisewindow(focuswin->id);
 }
 
@@ -1406,7 +1407,7 @@ raisewindow(xcb_drawable_t win)
 
 	if (screen->root == win || 0 == win)
 		return;
-
+  raisedwin = win;
 	xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_STACK_MODE, values);
 	xcb_flush(conn);
 }
@@ -1840,11 +1841,9 @@ mousemove(const int16_t rel_x, const int16_t rel_y)
 void
 mouseraise(void) {
 	if (raisedwin == focuswin) {
-		//xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 		return;
 	} else {
 		raise_current_window();
-		//xcb_ungrab_pointer(conn, XCB_CURRENT_TIME);
 		raisedwin = focuswin;
 	}
 }
@@ -2799,13 +2798,14 @@ buttonpress(xcb_generic_event_t *ev)
 {
 	xcb_button_press_event_t *e = (xcb_button_press_event_t *)ev;
 	unsigned int i;
-	
-	if (raisedwin == NULL) {
-		raisedwin = focuswin;
-	}
+	if (!(e->event == e->root)) {	
+		if (raisedwin == NULL) {
+			raisedwin = focuswin;
+		}
 
-	if (CLICK_TO_FOCUS && raisedwin->id != e->event && e->detail == XCB_BUTTON_INDEX_1)
-		mouseraise();
+		if (CLICK_TO_FOCUS && raisedwin->id != e->event && e->detail == XCB_BUTTON_INDEX_1)
+			mouseraise();
+	}
 
 	for (i=0; i<LENGTH(buttons); i++)
 		if (buttons[i].func && buttons[i].button == e->detail
@@ -2822,9 +2822,11 @@ buttonpress(xcb_generic_event_t *ev)
 			}
 		}
 
-	if (CLICK_TO_FOCUS) {
-		xcb_allow_events(conn, XCB_ALLOW_REPLAY_POINTER, e->time);
-		xcb_flush(conn);
+	if (!(e->event == e->root)) {
+		if (CLICK_TO_FOCUS) {
+			xcb_allow_events(conn, XCB_ALLOW_REPLAY_POINTER, e->time);
+			xcb_flush(conn);
+		}
 	}
 }
 
