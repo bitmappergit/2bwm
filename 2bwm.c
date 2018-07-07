@@ -177,7 +177,6 @@ void
 raise_current_window(void)
 {
 	raisewindow(focuswin->id);
-	raisedwin = focuswin;
 }
 
 void
@@ -1407,7 +1406,7 @@ raisewindow(xcb_drawable_t win)
 
 	if (screen->root == win || 0 == win)
 		return;
-  //raisedwin = win;
+  raisedwin = findclient(&win);
 	xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_STACK_MODE, values);
 	xcb_flush(conn);
 }
@@ -1422,9 +1421,9 @@ raiseorlower()
 	if (NULL == focuswin)
 		return;
 
-	xcb_configure_window(conn, focuswin->id,XCB_CONFIG_WINDOW_STACK_MODE,
-			values);
-
+	xcb_configure_window(conn, focuswin->id,XCB_CONFIG_WINDOW_STACK_MODE, values);
+	
+	raisedwin = focuswin;
 	xcb_flush(conn);
 }
 
