@@ -21,7 +21,7 @@ static const uint8_t offsets[] = {15,15,30,30};
  *2)fixedcol         3)unkilcol
  *4)fixedunkilcol    5)outerbordercol
  *6)emptycol         */
-static const char *colors[] = {"#D8DEE9","#4C566A","#7a8c5c","#ff6666","#cc9933","#222D32","#222D32"};
+static const char *colors[] = {"#D8DEE9","#4C566A","#7a8c5c","#ff6666","#cc9933","#2e3440","#2e3440"};
 /* if this is set to true the inner border and outer borders colors will be swapped */
 static const bool inverted_colors = false;
 ///---Cursor---///
@@ -43,7 +43,7 @@ static const uint8_t borders[] = {5,10,10,10};
 static const char *ignore_names[] = {"bar", "xclock", "polybar"};
 ///--Menus and Programs---///
 static const char *menucmd[]   = { "rofi", "-show", "run", NULL };
-static const char *termcmd[]   = { "st", NULL };
+static const char *termcmd[]   = { "termite", NULL };
 ///--Custom foo---///
 static void halfandcentered(const Arg *arg)
 {
@@ -203,7 +203,7 @@ static key keys[] = {
 static Button buttons[] = {
     {  MOD        ,XCB_BUTTON_INDEX_1,     mousemotion,   {.i=TWOBWM_MOVE}, false},
     {  MOD        ,XCB_BUTTON_INDEX_3,     mousemotion,   {.i=TWOBWM_RESIZE}, false},
-    //{  0          ,XCB_BUTTON_INDEX_3,     start,         {.com = menucmd}, true},
+    {  0          ,XCB_BUTTON_INDEX_3,     start,         {.com = menucmd}, true},
     //{  0          ,XCB_BUTTON_INDEX_1,     mouseraise,   {}, false},
     {  MOD|SHIFT,  XCB_BUTTON_INDEX_1,     changeworkspace, {.i=0}, false},
     {  MOD|SHIFT,  XCB_BUTTON_INDEX_3,     changeworkspace, {.i=1}, false},

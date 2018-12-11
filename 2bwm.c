@@ -143,7 +143,7 @@ static void mouseraise(void);
 static void setborders(struct client *,const bool);
 static void unmax(struct client *);
 static bool getpointer(const xcb_drawable_t *, int16_t *,int16_t *);
-static bool getgeom(const xcb_drawable_t *, int16_t *, int16_t *, uint16_t *,uint16_t *);
+static bool getgeom(const xcb_drawable_t *, int16_t *, int16_t *, uint16_t *,uint16_t *, uint8_t *);
 static void configwin(xcb_window_t, uint16_t,const struct winconf *);
 static void sigcatch(const int);
 static void ewmh_init(void);
@@ -945,7 +945,7 @@ setupwin(xcb_window_t win)
 
 	/* Get window geometry. */
 	getgeom(&client->id, &client->x, &client->y, &client->width,
-			&client->height);
+			&client->height, &client->depth);
 
 	/* Get the window's incremental size step, if any.*/
 	xcb_icccm_get_wm_normal_hints_reply(conn,
@@ -1984,7 +1984,7 @@ setborders(struct client *client,const bool isitfocused)
 	xcb_pixmap_t pmap = xcb_generate_id(conn);
 	/* my test have shown that drawing the pixmap directly on the root
 	 * window is faster then drawing it on the window directly */
-	xcb_create_pixmap(conn, screen->root_depth, pmap, screen->root,
+	xcb_create_pixmap(conn, client->depth, pmap, client->id,
 			client->width + (conf.borderwidth * 2),
 			client->height + (conf.borderwidth * 2)
 	);
@@ -2253,7 +2253,7 @@ getpointer(const xcb_drawable_t *win, int16_t *x, int16_t *y)
 
 bool
 getgeom(const xcb_drawable_t *win, int16_t *x, int16_t *y, uint16_t *width,
-		uint16_t *height)
+		uint16_t *height, uint8_t *depth)
 {
 	xcb_get_geometry_reply_t *geom = xcb_get_geometry_reply(conn,
 			xcb_get_geometry(conn, *win), NULL);
@@ -2265,6 +2265,7 @@ getgeom(const xcb_drawable_t *win, int16_t *x, int16_t *y, uint16_t *width,
 	*y = geom->y;
 	*width = geom->width;
 	*height = geom->height;
+	*depth = geom->depth;
 
 	free(geom);
 	return true;
