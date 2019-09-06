@@ -1,5 +1,7 @@
 ![2bwm](https://raw.github.com/venam/2bwm/master/2bWM.png)
 
+*** DO NOT USE THIS FORK, IT IS VERY BROKEN***
+
 2bwm
 ==========
 A fast floating WM, with the particularity of having 2 borders, written over
